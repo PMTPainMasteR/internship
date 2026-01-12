@@ -7,7 +7,7 @@ on:
 
 jobs:
   docker-build-run:
-    runs-on: ubuntu-24.04.3
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
