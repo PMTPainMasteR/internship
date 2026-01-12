@@ -10,7 +10,7 @@ COPY wifi_visit_v5.go .
 
 RUN CGO_ENABLED=0 go build -o wifi_visit wifi_visit_v5.go
 
-FROM UBUNTU:24.04
+FROM ubuntu:24.04
 WORKDIR /root/
 COPY --from=builder /app/wifi_visit .
 CMD ["./wifi_visit"]
