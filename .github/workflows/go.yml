@@ -3,18 +3,19 @@ name: Build and Run Docker Simulation
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:       # <--- Adds a "Run Workflow" button for manual testing
+
 jobs:
   docker-build-run:
-    runs-on: ubuntu-24.04.3
-
+    runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Build Docker Image
-        run: docker build -t wiffi-simulation:v0.0.5 .
+        # We add "./app" at the end to tell Docker the files are in the app folder
+        run: docker build -t wifi-simulation:latest ./app
 
       - name: Run Simulation
-        run: docker run --rm wifi-simulation:v0.0.5
+        run: docker run --rm wifi-simulation:latest
