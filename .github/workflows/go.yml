@@ -28,7 +28,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./app
-          tags: wifi-simultaion:latest
+          tags: wifi-simulation:latest
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
