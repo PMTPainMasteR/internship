@@ -46,4 +46,4 @@ jobs:
           cache-dir: .tryivy
       
       - name: Run Simulation
-        run: docker run --rm wifi_simulation:latest
+        run: docker run --rm wifi-simulation:latest
