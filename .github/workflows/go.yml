@@ -14,8 +14,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker Image
-        # We add "./app" at the end to tell Docker the files are in the app folder
         run: docker build -t wifi-simulation:latest ./app
+
+      - name: Docker Image scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'wifi-simulation:latest'
+          format: 'table'
+          exit-code: '1'
+          vuln-type: 'os,library'
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL, HIGH'          
 
       - name: Run Simulation
         run: docker run --rm wifi-simulation:latest
