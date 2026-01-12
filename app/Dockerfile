@@ -2,16 +2,15 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-COPY . .
+COPY go.mod ./
 
-RUN go mod init wifi_sim || true
+RUN go mod download
 
-RUN go build -o wifi_visit wifi_visit_v5.go
+COPY wifi_visit_v5.go .
 
-FROM alpine:3.19
+RUN CGO_ENABLED=0 go build -o wifi_visit wifi_visit_v5.go
 
+FROM UBUNTU:24.04
 WORKDIR /root/
-
 COPY --from=builder /app/wifi_visit .
-
 CMD ["./wifi_visit"]
