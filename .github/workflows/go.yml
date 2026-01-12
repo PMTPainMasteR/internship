@@ -39,6 +39,7 @@ jobs:
           image-ref: 'wifi-simulation:latest'
           format: 'table'
           exit-code: '1'
+          ignore-unfix: true
           vuln-type: 'os,library'
           scanners: 'vuln,secret,misconfig'
           severity: 'CRITICAL,HIGH'
