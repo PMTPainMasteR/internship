@@ -13,10 +13,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker Image
-        run: docker build -t wifi-simulation:latest ./app
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Docker Image scan with Trivy
+      - name: Cache Trivy DB
+        uses: action/cache@v4
+        with:
+          path: .trivy
+          key: ${{ runner.os }}-trivy-db
+          restore-keys: |
+            ${{ runner.os }}-trivy-db
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          tags: wifi-simultaion:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker Image Scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'wifi-simulation:latest'
@@ -24,7 +41,8 @@ jobs:
           exit-code: '1'
           vuln-type: 'os,library'
           scanners: 'vuln,secret,misconfig'
-          severity: "CRITICAL,HIGH"         
-
+          severity: 'CRITICAL,HIGH'
+          cache-dir: .tryivy
+      
       - name: Run Simulation
-        run: docker run --rm wifi-simulation:latest
+        run: docker run --rm wifi_simulation:latest
