@@ -8,7 +8,7 @@ RUN go mod init wifi_sim || true
 
 RUN go build -o wifi_visit wifi_visit_v5.go
 
-FROM alpine:latest
+FROM alpine:3.19
 
 WORKDIR /root/
 
