@@ -65,7 +65,7 @@ jobs:
         if: failure() && steps.trivy_scan.outcome == 'failure'
         env:
           # FIXED: Use your custom secret, not the default GITHUB_TOKEN
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_MODELS_API_KEY }}
         run: |
           echo "Processing Trivy Report..."
 
