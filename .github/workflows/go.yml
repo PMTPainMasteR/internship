@@ -19,7 +19,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Cache Trivy DB
-        uses: action/cache@v4
+        uses: actions/cache@v4
         with:
           context: ./app
           tags: wifi-simulation:latest
