@@ -108,8 +108,12 @@ jobs:
               -d @payload.json \
               -o ai_response.json
 
-            echo "AI REMEDIATION ADVICE:"
-            cat ai_response.json | jq -r '.choices[0].message.content'
+            echo "---DEBUG: RAW AI RESPONSE ---"
+            cat ai_response.json
+            echo "-----------------------------"
+
+            # echo "AI REMEDIATION ADVICE:" 
+            # cat ai_response.json | jq -r '.choices[0].message.content'
 
       # Only run simulation if everything passed (optional)
       - name: Run Simulation
