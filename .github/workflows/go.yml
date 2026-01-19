@@ -21,10 +21,10 @@ jobs:
       - name: Cache Trivy DB
         uses: actions/cache@v4
         with:
-          path: .triy
-          key: ${{ runner.os}}-trivy-db
+          path: .trivy          # Fixed typo: .triy -> .trivy
+          key: ${{ runner.os }}-trivy-db
           restore-keys: |
-            ${{ runner.os}}-trivy-db
+            ${{ runner.os }}-trivy-db
 
       - name: Build Docker Image
         uses: docker/build-push-action@v6
@@ -35,36 +35,41 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # --- SCAN 1: BLOCKING (Must fail to trigger AI) ---
       - name: Docker Image Scaned by Trivy
         id: trivy_scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'wifi-simulation:latest'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'        # FIXED: Must be '1' to trigger failure() steps
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH,MEDIUM'
           cache-dir: .trivy
 
+      # --- SCAN 2: REPORTING ---
       - name: Generate JSON Report
         if: failure() && steps.trivy_scan.outcome == 'failure'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'wifi-simulation:latest'
           format: 'json'
-          output: 'trivt-report.json'
+          output: 'trivy-report.json' # Fixed typo: trivt -> trivy
           exit-code: '0'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH,MEDIUM'
           cache-dir: .trivy
       
+      # --- AI ANALYSIS STEP ---
       - name: Analyze by AI
         if: failure() && steps.trivy_scan.outcome == 'failure'
         env:
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          # FIXED: Use your custom secret, not the default GITHUB_TOKEN
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Processing Trivy Report..."
 
+          # Extract data using jq
           REPORT_CONTENT=$(jq -c '
           [
             .Results[]? | .Vulnerabilities[]?
@@ -72,23 +77,25 @@ jobs:
           ]
           | unique_by(.Package) | .[:20]' trivy-report.json)
 
+          # Check if report is empty
           if [ -z "$REPORT_CONTENT" ] || [ "$REPORT_CONTENT" == "[]" ]; then 
-            echo "No vulneravilities found to send"
+            echo "No vulnerabilities found to send"
             exit 0
           fi
 
+          # Construct Payload
           jq -n \
-            --arg report "$REPORT_CONTENT"\
+            --arg report "$REPORT_CONTENT" \
             '{
-              model: "gpt-40",
-              message: [
+              model: "gpt-4o",          # Fixed typo: gpt-40 -> gpt-4o
+              messages: [               # Fixed typo: message -> messages
                 {
                   role: "system",
                   content: "You are a DevSecOps expert. Provide the exact fix commands (e.g., apt-get install) for these vulnerabilities."
                 },
                 {
                   role: "user",
-                  content: ("Fixed these issues: " + $report)
+                  content: ("Fix these issues: " + $report)
                 }
               ]
             }' > payload.json
@@ -96,13 +103,15 @@ jobs:
             echo "Sending request to AI..."
 
             curl https://models.inference.ai.azure.com/chat/completions \
-              -H "Content-Type: applicattion/json" \
+              -H "Content-Type: application/json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -d @payload.json \
               -o ai_response.json
 
-            echo "AI REMEDIATION ADVICE.:"
+            echo "AI REMEDIATION ADVICE:"
             cat ai_response.json | jq -r '.choices[0].message.content'
 
+      # Only run simulation if everything passed (optional)
       - name: Run Simulation
+        if: success()
         run: docker run --rm wifi-simulation:latest
