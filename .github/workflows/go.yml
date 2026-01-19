@@ -1,14 +1,16 @@
-name: Build and Run Docker Simulation
+name: Build, Scan, and AI Analysis
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:       # <--- Adds a "Run Workflow" button for manual testing
+  workflow_dispatch:
 
 jobs:
   docker-build-run:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -17,15 +19,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Cache Trivy DB
-        uses: actions/cache@v4
-        with:
-          path: .trivy
-          key: ${{ runner.os }}-trivy-db
-          restore-keys: |
-            ${{ runner.os }}-trivy-db
-
-      - name: Build Docker Image
-        uses: docker/build-push-action@v6
+        uses: action/cache@v4
         with:
           context: ./app
           tags: wifi-simulation:latest
@@ -33,17 +27,76 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Docker Image Scan with Trivy
+      - name: Docker Image Scaned by Trivy
+        id: trivy_scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'wifi-simulation:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfix: true
-          vuln-type: 'os,library'
-          scanners: 'vuln,secret,misconfig'
-          severity: 'CRITICAL,HIGH'
-          cache-dir: .tryivy
+          vult-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          cache-dir: .trivy
+
+      - name: Generate JSON Report
+        if: failure() && steps.trivy_scan.outcome == 'failure'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'wifi-simulation:latest'
+          format: 'json'
+          output: 'trivt-report.json'
+          exit-code: '0'
+          ignore-unfix: true
+          vuln-type: 'os, library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          cache-dir: .trivy
       
+      - name: Analyze by AI
+        if: failure() && steps.trivy_scan.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          echo "Processing Trivy Report..."
+
+          REPORT_CONTENT=$(jq -c '
+          [
+            .Results[]? | .Vulnerabilities[]?
+            | { Package: .PkgName, Current: .InstalledVersion, FixedIn: .FixedVersion, ID: .VulnerabilityID }
+          ]
+          | unique_by(.Package) | .[:20]' trivy-report.json)
+
+          if [ -z "$REPORT_CONTENT" ] || [ "$REPORT_CONTENT" == "[]" ]; then 
+            echo "No vulneravilities found to send"
+            exit 0
+          fi
+
+          jq -n \
+            --arg report "$REPORT_CONTENT"\
+            '{
+              model: "gpt-40",
+              message: [
+                {
+                  role: "system",
+                  content: "You are a DevSecOps expert. Provide the exact fix commands (e.g., apt-get install) for these vulnerabilities."
+                },
+                {
+                  role: "user",
+                  content: ("Fixed these issues: " + $report)
+                }
+              ]
+            }' > payload.json
+
+            echo "Sending request to AI..."
+
+            curl https://models.inference.ai.azure.com/chat/completions \
+              -H "Content-Type: applicattion/json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -d @payload.json \
+              -o ai_response.json
+
+            echo "AI REMEDIATION ADVICE.:"
+            cat ai_response.json | jq -r '.choices[0].message.content'
+
       - name: Run Simulation
         run: docker run --rm wifi-simulation:latest
