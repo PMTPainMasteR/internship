@@ -21,6 +21,14 @@ jobs:
       - name: Cache Trivy DB
         uses: actions/cache@v4
         with:
+          path: .triy
+          key: ${{ runner.os}}-trivy-db
+          restore-keys: |
+            ${{ runner.os}}-trivy-db
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
           context: ./app
           tags: wifi-simulation:latest
           load: true
