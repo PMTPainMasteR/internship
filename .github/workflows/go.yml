@@ -64,12 +64,11 @@ jobs:
       - name: Analyze by AI
         if: failure() && steps.trivy_scan.outcome == 'failure'
         env:
-          # FIXED: Use your custom secret, not the default GITHUB_TOKEN
           GH_TOKEN: ${{ secrets.GH_MODELS_API_KEY }}
         run: |
           echo "Processing Trivy Report..."
 
-          # Extract data using jq
+          # 1. Extract and Filter Data
           REPORT_CONTENT=$(jq -c '
           [
             .Results[]? | .Vulnerabilities[]?
@@ -77,21 +76,22 @@ jobs:
           ]
           | unique_by(.Package) | .[:20]' trivy-report.json)
 
-          # Check if report is empty
+          # 2. Safety Check
           if [ -z "$REPORT_CONTENT" ] || [ "$REPORT_CONTENT" == "[]" ]; then 
             echo "No vulnerabilities found to send"
             exit 0
           fi
 
-          # Construct Payload
+          # 3. Build Payload (Safe from Injection)
           jq -n \
             --arg report "$REPORT_CONTENT" \
             '{
-              model: "gpt-4o",          # Fixed typo: gpt-40 -> gpt-4o
-              messages: [               # Fixed typo: message -> messages
+              model: "gpt-4o",
+              max_tokens: 1500,  # <--- Increased to prevent cutoff
+              messages: [
                 {
                   role: "system",
-                  content: "You are a DevSecOps expert. Provide the exact fix commands (e.g., apt-get install) for these vulnerabilities."
+                  content: "You are a DevSecOps expert. Provide the exact fix commands (e.g., apt-get install) for these vulnerabilities. Format the output using Markdown."
                 },
                 {
                   role: "user",
@@ -108,12 +108,17 @@ jobs:
               -d @payload.json \
               -o ai_response.json
 
-            echo "---DEBUG: RAW AI RESPONSE ---"
-            cat ai_response.json
-            echo "-----------------------------"
+            # 4. PRINT CLEAN OUTPUT (The Fix for \n)
+            echo "---------------------------------------------------"
+            echo "AI REMEDIATION ADVICE:"
+            echo "---------------------------------------------------"
+            
+            # The -r flag tells jq to render \n as real newlines
+            cat ai_response.json | jq -r '.choices[0].message.content'
 
-            # echo "AI REMEDIATION ADVICE:" 
-            # cat ai_response.json | jq -r '.choices[0].message.content'
+            # 5. BONUS: Add to GitHub Summary Page
+            echo "## 🛡️ AI Security Remediation" >> $GITHUB_STEP_SUMMARY
+            cat ai_response.json | jq -r '.choices[0].message.content' >> $GITHUB_STEP_SUMMARY
 
       # Only run simulation if everything passed (optional)
       - name: Run Simulation
