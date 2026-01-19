@@ -42,8 +42,7 @@ jobs:
           image-ref: 'wifi-simulation:latest'
           format: 'table'
           exit-code: '1'
-          ignore-unfix: true
-          vult-type: 'os,library'
+          ignore-unfixed: true
           severity: 'CRITICAL,HIGH,MEDIUM'
           cache-dir: .trivy
 
@@ -55,8 +54,7 @@ jobs:
           format: 'json'
           output: 'trivt-report.json'
           exit-code: '0'
-          ignore-unfix: true
-          vuln-type: 'os, library'
+          ignore-unfixed: true
           severity: 'CRITICAL,HIGH,MEDIUM'
           cache-dir: .trivy
       
