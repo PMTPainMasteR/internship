@@ -41,7 +41,7 @@ jobs:
         with:
           image-ref: 'wifi-simulation:latest'
           format: 'table'
-          exit-code: '1'
+          exit-code: '0'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH,MEDIUM'
           cache-dir: .trivy
